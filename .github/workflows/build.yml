@@ -26,9 +26,7 @@ jobs:
             -lamiga
 
       - name: Verify binary
-        run: |
-          ls -la build/breakout
-          file build/breakout
+        run: ls -la build/breakout
 
       - name: Upload artifact
         uses: actions/upload-artifact@v4
