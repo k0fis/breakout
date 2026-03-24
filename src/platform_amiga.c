@@ -2,8 +2,8 @@
  * platform_amiga.c — Amiga backend for Breakout
  *
  * Target: A1200 (68020, AGA, AmigaOS 3.1)
- * Uses: Intuition screen, graphics.library RastPort, timer.device,
- *       hardware joystick reading (port 1)
+ * Uses: Intuition screen with double buffering, graphics.library RastPort,
+ *       timer.device, hardware joystick reading (port 1)
  */
 
 #include "platform.h"
@@ -59,7 +59,12 @@ static struct { UBYTE r, g, b; } pen_table[NUM_PENS] = {
 
 static struct Screen     *scr;
 static struct Window     *win;
-static struct RastPort   *rp;
+
+/* Double buffering */
+static struct ScreenBuffer *sbuf[2];
+static struct RastPort      rpbuf[2];
+static struct RastPort     *rp;
+static int                  cur_buf;
 
 static struct MsgPort    *timer_port;
 static struct timerequest *timer_io;
@@ -85,10 +90,15 @@ static void read_joy(int *left, int *right, int *fire)
 {
     UWORD joy = custom.joy1dat;
 
-    /* Standard gray-code decoding for digital joystick */
+    /*
+     * JOY1DAT gray-code decoding (HRM):
+     *   Right = bit1 XOR bit0
+     *   Left  = bit9 XOR bit8
+     *   Fire  = CIAAPRA bit7 (active low)
+     */
     *right = ((joy >> 1) ^ joy) & 1;
     *left  = ((joy >> 9) ^ (joy >> 8)) & 1;
-    *fire  = !(ciaa.ciapra & 0x0080);  /* fire button, active low */
+    *fire  = !(ciaa.ciapra & 0x0080);
 }
 
 /* ---- Platform API ---- */
@@ -130,6 +140,20 @@ int plat_init(int w, int h, const char *title)
     colortable[1 + NUM_PENS * 3] = 0;  /* terminator */
     LoadRGB32(&scr->ViewPort, colortable);
 
+    /* Double buffering: allocate two screen buffers */
+    sbuf[0] = AllocScreenBuffer(scr, NULL, SB_SCREEN_BITMAP);
+    sbuf[1] = AllocScreenBuffer(scr, NULL, 0);
+    if (!sbuf[0] || !sbuf[1]) goto fail;
+
+    /* Init RastPorts for each buffer */
+    InitRastPort(&rpbuf[0]);
+    rpbuf[0].BitMap = sbuf[0]->sb_BitMap;
+    InitRastPort(&rpbuf[1]);
+    rpbuf[1].BitMap = sbuf[1]->sb_BitMap;
+
+    cur_buf = 1;  /* draw to back buffer first */
+    rp = &rpbuf[cur_buf];
+
     /* Borderless window for IDCMP input */
     win = OpenWindowTags(NULL,
         WA_CustomScreen,  (ULONG)scr,
@@ -145,8 +169,6 @@ int plat_init(int w, int h, const char *title)
         TAG_DONE);
 
     if (!win) goto fail;
-
-    rp = win->RPort;
 
     /* Open timer.device for plat_ticks / plat_delay */
     timer_port = CreateMsgPort();
@@ -190,6 +212,14 @@ void plat_shutdown(void)
         CloseWindow(win);
         win = NULL;
     }
+    if (sbuf[1]) {
+        FreeScreenBuffer(scr, sbuf[1]);
+        sbuf[1] = NULL;
+    }
+    if (sbuf[0]) {
+        FreeScreenBuffer(scr, sbuf[0]);
+        sbuf[0] = NULL;
+    }
     if (scr) {
         CloseScreen(scr);
         scr = NULL;
@@ -220,7 +250,13 @@ void plat_draw_rect(int x, int y, int w, int h,
 
 void plat_flip(void)
 {
-    WaitTOF();   /* wait for vertical blank — simple vsync */
+    /* Show the buffer we just drew to */
+    ChangeScreenBuffer(scr, sbuf[cur_buf]);
+    WaitTOF();
+
+    /* Switch to drawing on the other (now hidden) buffer */
+    cur_buf ^= 1;
+    rp = &rpbuf[cur_buf];
 }
 
 int plat_poll_input(int *left, int *right, int *fire)
@@ -244,10 +280,10 @@ int plat_poll_input(int *left, int *right, int *fire)
         }
     }
 
-    /* Keyboard: cursor keys + space */
-    *left  = keystate[0x4F];  /* cursor left */
-    *right = keystate[0x4E];  /* cursor right */
-    *fire  = keystate[0x40];  /* space */
+    /* Keyboard: cursor keys + A/D as fallback + space */
+    *left  = keystate[0x4F] | keystate[0x20];  /* cursor left | A */
+    *right = keystate[0x4E] | keystate[0x22];  /* cursor right | D */
+    *fire  = keystate[0x40];                    /* space */
 
     /* Merge with joystick (port 1) */
     read_joy(&jl, &jr, &jf);
