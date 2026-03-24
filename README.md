@@ -4,7 +4,7 @@ Klasický Breakout/Arkanoid klon v čistém C99 s multiplatformní architekturou
 Jedna herní logika, dva grafické backendy: **SDL2** (macOS, Linux, Windows)
 a **Amiga nativní** (A1200, AGA chipset).
 
-![Build](https://img.shields.io/github/actions/workflow/status/USERNAME/breakout/build.yml?branch=main)
+![Build](https://img.shields.io/github/actions/workflow/status/k0fis/breakout/build.yml?branch=main)
 ![Platform](https://img.shields.io/badge/platform-Linux%20|%20macOS%20|%20Windows%20|%20AmigaOS-blue)
 ![Language](https://img.shields.io/badge/language-C99-orange)
 ![Target](https://img.shields.io/badge/Amiga-A1200%20(68020)-red)
