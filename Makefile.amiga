@@ -1,0 +1,31 @@
+# Breakout — Amiga cross-compilation via Docker (vbcc)
+#
+# Usage:
+#   make -f Makefile.amiga          # build
+#   make -f Makefile.amiga clean    # remove output
+
+DOCKER_IMAGE = walkero/docker4amigavbcc:latest-m68k
+NDK_INC      = /opt/sdk/NDK_3.9/Include/include_h
+OUT_DIR      = build
+BIN          = $(OUT_DIR)/breakout
+
+SRC = src/main.c src/game.c src/platform_amiga.c
+
+# vbcc flags for A1200 (68020, AmigaOS 3.x)
+VBCC_FLAGS = +aos68k -c99 -cpu=68020 -O2 -I$(NDK_INC) -lamiga
+
+all: $(BIN)
+
+$(BIN): $(SRC) src/game.h src/platform.h
+	@mkdir -p $(OUT_DIR)
+	docker run --rm \
+		-v $(CURDIR):/opt/code \
+		-w /opt/code \
+		$(DOCKER_IMAGE) \
+		vc $(VBCC_FLAGS) -o $(BIN) $(SRC)
+	@echo "Built: $(BIN)  (AmigaOS 68020 executable, $$(wc -c < $(BIN)) bytes)"
+
+clean:
+	rm -rf $(OUT_DIR)
+
+.PHONY: all clean

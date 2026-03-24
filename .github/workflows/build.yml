@@ -1,0 +1,164 @@
+name: Build
+
+on:
+  push:
+    branches: [main]
+    tags: ['v*']
+  pull_request:
+    branches: [main]
+
+jobs:
+  build-amiga:
+    name: Amiga (vbcc, 68020)
+    runs-on: ubuntu-latest
+    container:
+      image: walkero/docker4amigavbcc:latest-m68k
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Build
+        run: |
+          mkdir -p build
+          vc +aos68k -c99 -cpu=68020 -O2 \
+            -I$NDK_INC \
+            -o build/breakout \
+            src/main.c src/game.c src/platform_amiga.c \
+            -lamiga
+
+      - name: Verify binary
+        run: |
+          ls -la build/breakout
+          file build/breakout
+
+      - name: Upload artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: breakout-amiga-68020
+          path: build/breakout
+
+  build-linux:
+    name: Linux (x86_64)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install SDL2
+        run: sudo apt-get update && sudo apt-get install -y libsdl2-dev
+
+      - name: Build
+        run: |
+          cc -std=c99 -Wall -Wextra -O2 \
+            $(sdl2-config --cflags) \
+            -o breakout-linux-x86_64 \
+            src/main.c src/game.c src/platform_sdl2.c \
+            $(sdl2-config --libs)
+
+      - name: Verify binary
+        run: |
+          ls -la breakout-linux-x86_64
+          file breakout-linux-x86_64
+
+      - name: Upload artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: breakout-linux-x86_64
+          path: breakout-linux-x86_64
+
+  build-macos:
+    name: macOS (ARM64)
+    runs-on: macos-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install SDL2
+        run: brew install sdl2
+
+      - name: Build
+        run: |
+          cc -std=c99 -Wall -Wextra -O2 \
+            $(sdl2-config --cflags) \
+            -o breakout-macos-arm64 \
+            src/main.c src/game.c src/platform_sdl2.c \
+            $(sdl2-config --libs)
+
+      - name: Verify binary
+        run: |
+          ls -la breakout-macos-arm64
+          file breakout-macos-arm64
+
+      - name: Upload artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: breakout-macos-arm64
+          path: breakout-macos-arm64
+
+  build-windows:
+    name: Windows (x86_64)
+    runs-on: windows-latest
+    defaults:
+      run:
+        shell: msys2 {0}
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: msys2/setup-msys2@v2
+        with:
+          msystem: MINGW64
+          update: true
+          install: >-
+            mingw-w64-x86_64-gcc
+            mingw-w64-x86_64-SDL2
+
+      - name: Build
+        run: |
+          gcc -std=c99 -Wall -Wextra -O2 \
+            $(sdl2-config --cflags) \
+            -o breakout-windows-x86_64.exe \
+            src/main.c src/game.c src/platform_sdl2.c \
+            $(sdl2-config --libs)
+
+      - name: Bundle SDL2.dll
+        run: |
+          mkdir -p dist
+          cp breakout-windows-x86_64.exe dist/
+          cp /mingw64/bin/SDL2.dll dist/
+          echo "Breakout — https://github.com/$GITHUB_REPOSITORY" > dist/README.txt
+
+      - name: Upload artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: breakout-windows-x86_64
+          path: dist/
+
+  release:
+    name: Create Release
+    needs: [build-amiga, build-linux, build-macos, build-windows]
+    if: startsWith(github.ref, 'refs/tags/v')
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - name: Download all artifacts
+        uses: actions/download-artifact@v4
+        with:
+          path: artifacts
+
+      - name: Package archives
+        run: |
+          cd artifacts
+          tar czf ../breakout-amiga-68020.tar.gz -C breakout-amiga-68020 breakout
+          chmod +x breakout-linux-x86_64/breakout-linux-x86_64
+          tar czf ../breakout-linux-x86_64.tar.gz -C breakout-linux-x86_64 breakout-linux-x86_64
+          chmod +x breakout-macos-arm64/breakout-macos-arm64
+          tar czf ../breakout-macos-arm64.tar.gz -C breakout-macos-arm64 breakout-macos-arm64
+          cd breakout-windows-x86_64 && zip -r ../../breakout-windows-x86_64.zip . && cd ..
+
+      - name: Create GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          generate_release_notes: true
+          files: |
+            breakout-amiga-68020.tar.gz
+            breakout-linux-x86_64.tar.gz
+            breakout-macos-arm64.tar.gz
+            breakout-windows-x86_64.zip
