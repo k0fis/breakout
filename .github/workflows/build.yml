@@ -160,6 +160,26 @@ jobs:
           name: breakout-windows-x86_64
           path: dist/
 
+  build-web:
+    name: Web (Emscripten/WASM)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Emscripten
+        uses: mymindstorm/setup-emsdk@v14
+        with:
+          version: 3.1.51
+
+      - name: Build
+        run: emmake make -f Makefile.web
+
+      - name: Upload artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: breakout-web
+          path: build/web/
+
   build-whdload:
     name: WHDLoad package
     needs: [build-amiga]
@@ -213,7 +233,7 @@ jobs:
 
   release:
     name: Create Release
-    needs: [build-amiga, build-linux, build-macos, build-windows, build-whdload]
+    needs: [build-amiga, build-linux, build-macos, build-windows, build-whdload, build-web]
     if: startsWith(github.ref, 'refs/tags/v')
     runs-on: ubuntu-latest
     permissions:
@@ -241,6 +261,7 @@ jobs:
           cp repo/scripts/update.sh .
           chmod +x update.sh
           cp artifacts/breakout-whdload/breakout-whdload.tar.gz .
+          cd artifacts/breakout-web && zip -r ../../breakout-web.zip . && cd ..
 
       - name: Create GitHub Release
         uses: softprops/action-gh-release@v2
@@ -252,4 +273,5 @@ jobs:
             breakout-macos-arm64.zip
             breakout-windows-x86_64.zip
             breakout-whdload.tar.gz
+            breakout-web.zip
             update.sh
