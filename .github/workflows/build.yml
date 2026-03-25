@@ -198,9 +198,10 @@ jobs:
 
       - name: Package WHDLoad archive
         run: |
+          find amiga-bin -type f
           mkdir -p whdload/data
           cp build/Breakout.slave whdload/
-          cp amiga-bin/build/breakout whdload/data/
+          cp amiga-bin/breakout whdload/data/ || cp amiga-bin/build/breakout whdload/data/
           cp assets/breakout_whdload.info whdload/Breakout.info
           touch whdload/Breakout
           tar czf breakout-whdload.tar.gz -C whdload .
