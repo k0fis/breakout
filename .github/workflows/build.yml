@@ -183,6 +183,7 @@ jobs:
 
       - name: Assemble slave
         run: |
+          mkdir -p build
           vasmm68k_mot -devpac -nosym -Fhunkexe \
             -Isrc/whdload \
             -I/tmp/whdload/WHDLoad/Include \
