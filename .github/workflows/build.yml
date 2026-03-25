@@ -232,7 +232,7 @@ jobs:
       - name: Package archives
         run: |
           cd artifacts
-          tar czf ../breakout-amiga-68020.tar.gz -C breakout-amiga-68020/build breakout breakout.info
+          tar czf ../breakout-amiga-68020.tar.gz -C breakout-amiga-68020 breakout breakout.info
           cp breakout-linux-x86_64/Breakout-linux-x86_64.AppImage ../Breakout-linux-x86_64.AppImage
           chmod +x ../Breakout-linux-x86_64.AppImage
           cp breakout-macos-arm64/breakout-macos-arm64.zip ../breakout-macos-arm64.zip
