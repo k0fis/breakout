@@ -1,19 +1,30 @@
 CC     = cc
 CFLAGS = -std=c99 -Wall -Wextra -O2 $(shell sdl2-config --cflags)
 LIBS   = $(shell sdl2-config --libs)
+LIBS_STATIC = $(shell sdl2-config --static-libs)
 
 SRC    = src/main.c src/game.c src/platform_sdl2.c
 BIN    = breakout
+APP    = Breakout.app
 
 all: $(BIN)
 
 $(BIN): $(SRC) src/game.h src/platform.h
 	$(CC) $(CFLAGS) -o $(BIN) $(SRC) $(LIBS)
 
+bundle: $(SRC) src/game.h src/platform.h
+	$(CC) $(CFLAGS) -o $(BIN) $(SRC) $(LIBS_STATIC)
+	rm -rf $(APP)
+	mkdir -p $(APP)/Contents/MacOS
+	cp $(BIN) $(APP)/Contents/MacOS/
+	cp src/Info.plist $(APP)/Contents/
+	printf 'APPL????' > $(APP)/Contents/PkgInfo
+
 clean:
 	rm -f $(BIN)
+	rm -rf $(APP)
 
 run: $(BIN)
 	./$(BIN)
 
-.PHONY: all clean run
+.PHONY: all clean run bundle

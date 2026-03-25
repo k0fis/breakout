@@ -1,0 +1,7 @@
+[Desktop Entry]
+Type=Application
+Name=Breakout
+Exec=breakout
+Icon=breakout
+Categories=Game;
+Comment=Classic Breakout/Arkanoid clone

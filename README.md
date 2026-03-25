@@ -46,6 +46,10 @@ make -f Makefile.sdl2 run
 ```bash
 brew install sdl2
 make -f Makefile.sdl2 run
+
+# Vytvořit Breakout.app (double-click z Finderu):
+make -f Makefile.sdl2 bundle
+open Breakout.app
 ```
 
 ### Windows (MSYS2)
@@ -73,10 +77,11 @@ Každý push a pull request automaticky buildí **všechny 4 platformy** paralel
 
 | Job | Runner | Výstup |
 |-----|--------|--------|
-| Amiga | `ubuntu-latest` + Docker vbcc | `breakout` (AmigaOS Hunk) |
-| Linux | `ubuntu-latest` + gcc | `breakout-linux-x86_64` |
-| macOS | `macos-latest` + clang | `breakout-macos-arm64` |
-| Windows | `windows-latest` + MSYS2/MinGW | `breakout-windows-x86_64.exe` + `SDL2.dll` |
+| Amiga | `ubuntu-latest` + Docker vbcc | `breakout` + `breakout.info` (Workbench ikona) |
+| WHDLoad | `ubuntu-latest` + Docker vbcc + vasm | `Breakout.slave` + binárka + ikona (WHDLoad balíček) |
+| Linux | `ubuntu-latest` + gcc | `Breakout-linux-x86_64.AppImage` (portable) |
+| macOS | `macos-latest` + clang | `Breakout.app` (staticky linkovaný, .app bundle) |
+| Windows | `windows-latest` + MSYS2/MinGW | `breakout-windows-x86_64.exe` (s ikonou) + `SDL2.dll` |
 
 Buildy jsou ke stažení jako **artifacts** v záložce Actions.
 
@@ -90,10 +95,33 @@ git push --tags
 ```
 
 Release obsahuje:
-- `breakout-amiga-68020.tar.gz`
-- `breakout-linux-x86_64.tar.gz`
-- `breakout-macos-arm64.tar.gz`
-- `breakout-windows-x86_64.zip` (včetně SDL2.dll)
+- `breakout-amiga-68020.tar.gz` (binárka + Workbench ikona)
+- `breakout-whdload.tar.gz` (WHDLoad balíček — slave + binárka + ikona)
+- `Breakout-linux-x86_64.AppImage` (portable, double-click spuštění)
+- `breakout-macos-arm64.zip` (.app bundle + update skript)
+- `breakout-windows-x86_64.zip` (.exe s ikonou + SDL2.dll + update skript)
+- `update.sh` (standalone update skript pro Linux)
+
+## Aktualizace
+
+Každý release obsahuje update skript, který stáhne nejnovější verzi z GitHubu:
+
+### macOS / Linux
+
+```bash
+./update.sh
+```
+
+Skript detekuje OS (`uname -s`), stáhne správný asset a nahradí lokální soubory.
+Na macOS je přibalen v zipu, na Linuxu ke stažení jako standalone `update.sh` z releasu.
+
+### Windows (PowerShell)
+
+```powershell
+.\update.ps1
+```
+
+Přibalen v zipu vedle `.exe`.
 
 ## Ovládání
 
@@ -133,7 +161,21 @@ Release obsahuje:
 breakout/
 ├── .github/workflows/build.yml  # CI: multiplatformní build + release
 ├── src/                          # Zdrojové kódy
-├── assets/                       # Grafika, zvuky (zatím prázdné)
+│   ├── Info.plist                # macOS .app bundle metadata
+│   ├── app.rc                    # Windows resource file (ikona v .exe)
+│   ├── breakout.desktop          # Linux .desktop entry (pro AppImage)
+│   └── whdload/
+│       └── Breakout.asm          # WHDLoad slave (68k asm, BOOTDOS)
+├── assets/
+│   ├── breakout.info             # Amiga Workbench ikona
+│   ├── icon_256.png              # Ikona 256x256 (Linux AppImage)
+│   └── icon.ico                  # Ikona multi-size (Windows .exe)
+├── scripts/
+│   ├── update.sh                 # Self-update skript (macOS/Linux)
+│   └── update.ps1                # Self-update skript (Windows)
+├── tools/
+│   ├── gen_info.c                # Generátor Amiga .info souboru
+│   └── gen_icons.py              # Generátor PNG + ICO ikon
 ├── build/                        # Amiga výstup (gitignored)
 ├── Makefile.sdl2                 # PC build (Linux/macOS/Windows)
 ├── Makefile.amiga                # Amiga cross-build (Docker/vbcc)

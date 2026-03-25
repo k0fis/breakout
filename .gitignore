@@ -2,6 +2,11 @@
 build/
 breakout
 breakout-*
+Breakout.app/
+
+# Compiled tools
+tools/gen_info
+tools/gen_whdload_info
 
 # macOS
 .DS_Store
