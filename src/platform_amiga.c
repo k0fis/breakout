@@ -296,10 +296,9 @@ int plat_poll_input(int *left, int *right, int *fire)
 
 void plat_delay(int ms)
 {
-    timer_io->tr_node.io_Command = TR_ADDREQUEST;
-    timer_io->tr_time.tv_secs  = ms / 1000;
-    timer_io->tr_time.tv_micro = (ms % 1000) * 1000;
-    DoIO((struct IORequest *)timer_io);
+    /* WaitTOF() in plat_flip() already syncs to VBlank (50 Hz PAL).
+       Extra delay here would cause double-wait and stuttering. */
+    (void)ms;
 }
 
 uint32_t plat_ticks(void)
