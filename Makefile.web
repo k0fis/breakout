@@ -1,14 +1,16 @@
 CC      = emcc
 CFLAGS  = -std=c99 -O2 -s USE_SDL=2
 SRC     = src/main.c src/game.c src/platform_sdl2.c
-OUT     = build/web/breakout.html
+OUT     = build/web/breakout.js
 
-all: $(OUT)
+all: build/web/breakout.html
 
-$(OUT): $(SRC) src/game.h src/platform.h src/shell.html
+$(OUT): $(SRC) src/game.h src/platform.h
 	mkdir -p build/web
-	$(CC) $(CFLAGS) -o $(OUT) $(SRC) \
-		--shell-file src/shell.html
+	$(CC) $(CFLAGS) -o $(OUT) $(SRC)
+
+build/web/breakout.html: $(OUT) src/shell.html
+	cp src/shell.html build/web/breakout.html
 
 clean:
 	rm -rf build/web
