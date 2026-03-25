@@ -2,8 +2,8 @@
  * platform_amiga.c — Amiga backend for Breakout
  *
  * Target: A1200 (68020, AGA, AmigaOS 3.1)
- * Uses: Intuition screen with double buffering, graphics.library RastPort,
- *       timer.device, hardware joystick reading (port 1)
+ * Uses: Intuition screen with double buffering (ChangeScreenBuffer),
+ *       graphics.library RastPort, timer.device, hardware joystick (port 1)
  */
 
 #include "platform.h"
@@ -60,11 +60,10 @@ static struct { UBYTE r, g, b; } pen_table[NUM_PENS] = {
 static struct Screen     *scr;
 static struct Window     *win;
 
-/* Double buffering */
-static struct ScreenBuffer *sbuf[2];
-static struct RastPort      rpbuf[2];
-static struct RastPort     *rp;
-static int                  cur_buf;
+/* Offscreen buffer for flicker-free drawing */
+static struct BitMap     *offbm;
+static struct RastPort    offrp;
+static struct RastPort   *rp;
 
 static struct MsgPort    *timer_port;
 static struct timerequest *timer_io;
@@ -140,19 +139,13 @@ int plat_init(int w, int h, const char *title)
     colortable[1 + NUM_PENS * 3] = 0;  /* terminator */
     LoadRGB32(&scr->ViewPort, colortable);
 
-    /* Double buffering: allocate two screen buffers */
-    sbuf[0] = AllocScreenBuffer(scr, NULL, SB_SCREEN_BITMAP);
-    sbuf[1] = AllocScreenBuffer(scr, NULL, 0);
-    if (!sbuf[0] || !sbuf[1]) goto fail;
+    /* Offscreen bitmap for flicker-free drawing */
+    offbm = AllocBitMap(w, h, 4, BMF_CLEAR, scr->RastPort.BitMap);
+    if (!offbm) goto fail;
 
-    /* Init RastPorts for each buffer */
-    InitRastPort(&rpbuf[0]);
-    rpbuf[0].BitMap = sbuf[0]->sb_BitMap;
-    InitRastPort(&rpbuf[1]);
-    rpbuf[1].BitMap = sbuf[1]->sb_BitMap;
-
-    cur_buf = 1;  /* draw to back buffer first */
-    rp = &rpbuf[cur_buf];
+    InitRastPort(&offrp);
+    offrp.BitMap = offbm;
+    rp = &offrp;
 
     /* Borderless window for IDCMP input */
     win = OpenWindowTags(NULL,
@@ -212,13 +205,9 @@ void plat_shutdown(void)
         CloseWindow(win);
         win = NULL;
     }
-    if (sbuf[1]) {
-        FreeScreenBuffer(scr, sbuf[1]);
-        sbuf[1] = NULL;
-    }
-    if (sbuf[0]) {
-        FreeScreenBuffer(scr, sbuf[0]);
-        sbuf[0] = NULL;
+    if (offbm) {
+        FreeBitMap(offbm);
+        offbm = NULL;
     }
     if (scr) {
         CloseScreen(scr);
@@ -250,13 +239,10 @@ void plat_draw_rect(int x, int y, int w, int h,
 
 void plat_flip(void)
 {
-    /* Show the buffer we just drew to */
-    ChangeScreenBuffer(scr, sbuf[cur_buf]);
-    WaitTOF();
-
-    /* Switch to drawing on the other (now hidden) buffer */
-    cur_buf ^= 1;
-    rp = &rpbuf[cur_buf];
+    /* Blit offscreen to display — no WaitTOF to avoid frame stall */
+    BltBitMapRastPort(offbm, 0, 0, &scr->RastPort,
+                      0, 0, scr->Width, scr->Height, 0xC0);
+    WaitBlit();
 }
 
 int plat_poll_input(int *left, int *right, int *fire)
@@ -296,8 +282,6 @@ int plat_poll_input(int *left, int *right, int *fire)
 
 void plat_delay(int ms)
 {
-    /* WaitTOF() in plat_flip() already syncs to VBlank (50 Hz PAL).
-       Extra delay here would cause double-wait and stuttering. */
     (void)ms;
 }
 

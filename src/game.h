@@ -19,10 +19,14 @@
 #define PADDLE_W      48
 #define PADDLE_H      8
 #define PADDLE_Y      (SCREEN_H - 24)
+#ifndef PADDLE_SPEED
 #define PADDLE_SPEED  4
+#endif
 
 #define BALL_SIZE     4
+#ifndef BALL_SPEED
 #define BALL_SPEED    3
+#endif
 
 #define MAX_LIVES     3
 
