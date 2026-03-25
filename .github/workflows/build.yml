@@ -184,6 +184,7 @@ jobs:
       - name: Assemble slave
         run: |
           vasmm68k_mot -devpac -nosym -Fhunkexe \
+            -Isrc/whdload \
             -I/tmp/whdload/WHDLoad/Include \
             -I/tmp/whdload/WHDLoad/Src/sources \
             -I/opt/sdk/NDK_3.9/Include/include_i \
