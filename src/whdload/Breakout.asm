@@ -6,10 +6,6 @@
 	INCLUDE	whdload.i
 	INCLUDE	whdmacros.i
 
-; --- LVO offsets (inline to avoid NDK lvo/ dependency) ---
-_LVOOldOpenLibrary	EQU	-408
-_LVOLoadSeg		EQU	-150
-
 ; --- Configuration for kick31.s ---
 CHIPMEMSIZE	= $1ff000	; ~2 MB chip RAM
 FASTMEMSIZE	= $0		; no fast RAM needed
