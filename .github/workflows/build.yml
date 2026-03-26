@@ -21,7 +21,7 @@ jobs:
           mkdir -p build
           vc +aos68k -c99 -cpu=68020 -O2 \
             -I$NDK_INC \
-            -DPADDLE_SPEED=10 -DBALL_SPEED=8 \
+            -DPADDLE_SPEED=6 -DBALL_SPEED=5 \
             -o build/breakout \
             src/main.c src/game.c src/platform_amiga.c \
             -lamiga

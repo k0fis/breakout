@@ -60,10 +60,13 @@ static struct { UBYTE r, g, b; } pen_table[NUM_PENS] = {
 static struct Screen     *scr;
 static struct Window     *win;
 
-/* Offscreen buffer for flicker-free drawing */
-static struct BitMap     *offbm;
-static struct RastPort    offrp;
-static struct RastPort   *rp;
+/* Double buffering via ChangeScreenBuffer */
+static struct ScreenBuffer *sbuf[2];
+static struct MsgPort      *dbport[2];
+static struct RastPort      rpbuf[2];
+static struct RastPort     *rp;
+static int                  cur_buf;
+static BOOL                 buf_safe[2];
 
 static struct MsgPort    *timer_port;
 static struct timerequest *timer_io;
@@ -139,13 +142,27 @@ int plat_init(int w, int h, const char *title)
     colortable[1 + NUM_PENS * 3] = 0;  /* terminator */
     LoadRGB32(&scr->ViewPort, colortable);
 
-    /* Offscreen bitmap for flicker-free drawing */
-    offbm = AllocBitMap(w, h, 4, BMF_CLEAR, scr->RastPort.BitMap);
-    if (!offbm) goto fail;
+    /* Double buffering with safe message ports */
+    sbuf[0] = AllocScreenBuffer(scr, NULL, SB_SCREEN_BITMAP);
+    sbuf[1] = AllocScreenBuffer(scr, NULL, 0);
+    if (!sbuf[0] || !sbuf[1]) goto fail;
 
-    InitRastPort(&offrp);
-    offrp.BitMap = offbm;
-    rp = &offrp;
+    dbport[0] = CreateMsgPort();
+    dbport[1] = CreateMsgPort();
+    if (!dbport[0] || !dbport[1]) goto fail;
+
+    sbuf[0]->sb_DBufInfo->dbi_SafeMessage.mn_ReplyPort = dbport[0];
+    sbuf[1]->sb_DBufInfo->dbi_SafeMessage.mn_ReplyPort = dbport[1];
+
+    InitRastPort(&rpbuf[0]);
+    rpbuf[0].BitMap = sbuf[0]->sb_BitMap;
+    InitRastPort(&rpbuf[1]);
+    rpbuf[1].BitMap = sbuf[1]->sb_BitMap;
+
+    cur_buf = 1;  /* draw to back buffer first */
+    rp = &rpbuf[cur_buf];
+    buf_safe[0] = TRUE;
+    buf_safe[1] = TRUE;
 
     /* Borderless window for IDCMP input */
     win = OpenWindowTags(NULL,
@@ -205,9 +222,26 @@ void plat_shutdown(void)
         CloseWindow(win);
         win = NULL;
     }
-    if (offbm) {
-        FreeBitMap(offbm);
-        offbm = NULL;
+    /* Drain pending safe messages before freeing ports */
+    if (dbport[0]) {
+        if (!buf_safe[0])
+            while (!GetMsg(dbport[0])) WaitPort(dbport[0]);
+        DeleteMsgPort(dbport[0]);
+        dbport[0] = NULL;
+    }
+    if (dbport[1]) {
+        if (!buf_safe[1])
+            while (!GetMsg(dbport[1])) WaitPort(dbport[1]);
+        DeleteMsgPort(dbport[1]);
+        dbport[1] = NULL;
+    }
+    if (sbuf[1]) {
+        FreeScreenBuffer(scr, sbuf[1]);
+        sbuf[1] = NULL;
+    }
+    if (sbuf[0]) {
+        FreeScreenBuffer(scr, sbuf[0]);
+        sbuf[0] = NULL;
     }
     if (scr) {
         CloseScreen(scr);
@@ -239,10 +273,29 @@ void plat_draw_rect(int x, int y, int w, int h,
 
 void plat_flip(void)
 {
-    /* Blit offscreen to display — no WaitTOF to avoid frame stall */
-    BltBitMapRastPort(offbm, 0, 0, &scr->RastPort,
-                      0, 0, scr->Width, scr->Height, 0xC0);
-    WaitBlit();
+    /* Wait until the buffer we're about to display is safe to show */
+    if (!buf_safe[cur_buf]) {
+        while (!GetMsg(dbport[cur_buf]))
+            WaitPort(dbport[cur_buf]);
+        buf_safe[cur_buf] = TRUE;
+    }
+
+    /* Swap: show the buffer we just drew to */
+    ChangeScreenBuffer(scr, sbuf[cur_buf]);
+    buf_safe[cur_buf] = FALSE;
+
+    WaitTOF();
+
+    /* Switch to the other buffer for drawing */
+    cur_buf ^= 1;
+    rp = &rpbuf[cur_buf];
+
+    /* Wait until back buffer is safe to draw on */
+    if (!buf_safe[cur_buf]) {
+        while (!GetMsg(dbport[cur_buf]))
+            WaitPort(dbport[cur_buf]);
+        buf_safe[cur_buf] = TRUE;
+    }
 }
 
 int plat_poll_input(int *left, int *right, int *fire)

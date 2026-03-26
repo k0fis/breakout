@@ -14,7 +14,7 @@ SRC = src/main.c src/game.c src/platform_amiga.c
 # vbcc flags for A1200 (68020, AmigaOS 3.x)
 # PAL runs at 50 Hz; game designed for 60 FPS → scale speeds ×1.2
 VBCC_FLAGS = +aos68k -c99 -cpu=68020 -O2 -I$(NDK_INC) \
-             -DPADDLE_SPEED=10 -DBALL_SPEED=8 -lamiga
+             -DPADDLE_SPEED=6 -DBALL_SPEED=5 -lamiga
 
 all: $(BIN)
 
