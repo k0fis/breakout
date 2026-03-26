@@ -17,6 +17,8 @@
   <string>APPL</string>
   <key>CFBundleExecutable</key>
   <string>breakout</string>
+  <key>CFBundleIconFile</key>
+  <string>breakout</string>
   <key>NSHighResolutionCapable</key>
   <true/>
 </dict>

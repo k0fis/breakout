@@ -18,6 +18,8 @@ bundle: $(SRC) src/game.h src/platform.h
 	mkdir -p $(APP)/Contents/MacOS
 	cp $(BIN) $(APP)/Contents/MacOS/
 	cp src/Info.plist $(APP)/Contents/
+	mkdir -p $(APP)/Contents/Resources
+	cp assets/breakout.icns $(APP)/Contents/Resources/
 	printf 'APPL????' > $(APP)/Contents/PkgInfo
 
 clean:
