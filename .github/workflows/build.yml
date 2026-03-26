@@ -109,17 +109,19 @@ jobs:
           file Breakout.app/Contents/MacOS/breakout
           otool -L Breakout.app/Contents/MacOS/breakout | grep -v SDL2 || true
 
-      - name: Zip bundle
+      - name: Create DMG
         run: |
-          cp scripts/update.sh .
-          chmod +x update.sh
-          zip -r breakout-macos-arm64.zip Breakout.app update.sh
+          mkdir -p dmg-stage
+          cp -R Breakout.app dmg-stage/
+          ln -s /Applications dmg-stage/Applications
+          hdiutil create -volname Breakout -srcfolder dmg-stage \
+            -ov -format UDZO breakout-macos-arm64.dmg
 
       - name: Upload artifact
         uses: actions/upload-artifact@v4
         with:
           name: breakout-macos-arm64
-          path: breakout-macos-arm64.zip
+          path: breakout-macos-arm64.dmg
 
   build-windows:
     name: Windows (x86_64)
@@ -256,7 +258,7 @@ jobs:
           tar czf ../breakout-amiga-68020.tar.gz -C breakout-amiga-68020 breakout breakout.info
           cp breakout-linux-x86_64/Breakout-linux-x86_64.AppImage ../Breakout-linux-x86_64.AppImage
           chmod +x ../Breakout-linux-x86_64.AppImage
-          cp breakout-macos-arm64/breakout-macos-arm64.zip ../breakout-macos-arm64.zip
+          cp breakout-macos-arm64/breakout-macos-arm64.dmg ../breakout-macos-arm64.dmg
           cd breakout-windows-x86_64 && zip -r ../../breakout-windows-x86_64.zip . && cd ..
           cd ..
           cp repo/scripts/update.sh .
@@ -271,7 +273,7 @@ jobs:
           files: |
             breakout-amiga-68020.tar.gz
             Breakout-linux-x86_64.AppImage
-            breakout-macos-arm64.zip
+            breakout-macos-arm64.dmg
             breakout-windows-x86_64.zip
             breakout-whdload.tar.gz
             breakout-web.zip
